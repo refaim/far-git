@@ -70,17 +70,16 @@ function string.extract(str, pattern) -- TODO при наличии регуля
     return (str:gsub(pattern, "%1"))
 end
 
-function runCommand(cmdString)
-    local result = nil
-    process = io.popen(string.format("%s 2>&1", cmdString))
-    result = process:read("*a")
+local function runCommand(cmdString)
+    local process = io.popen(string.format("%s 2>&1", cmdString))
+    local result = process:read("*a")
     process:close()
     return result
 end
 
-function branchPropsLessThan(lhs, rhs)
-    lhas = lhs["has_local"]
-    rhas = rhs["has_local"]
+local function branchPropsLessThan(lhs, rhs)
+    local lhas = lhs["has_local"]
+    local rhas = rhs["has_local"]
     if lhas and rhas then return lhs["branch_id_local"] < rhs["branch_id_local"]
     elseif lhas and not rhas then return true
     elseif not lhas and rhas then return false
@@ -88,13 +87,13 @@ function branchPropsLessThan(lhs, rhs)
     return lhs["branch_id_origin"] < rhs["branch_id_origin"]
 end
 
-function listBranches()
+local function listBranches()
     local menuItems = {}
     local activeIdx = 1
     local listObsolete = true
     repeat
         if listObsolete then
-            output = runCommand("git branch --list --all -vv")
+            local output = runCommand("git branch --list --all -vv")
             if string.contains(output, "Not a git repository") then return end
 
             local branchesPropsDict = {}
@@ -117,6 +116,7 @@ function listBranches()
                         local commitId = string.extract(line, "^%S+%s+([%a%d]+).*$")
                         local textBlock = string.strip(string.sub(line, string.find(line, commitId) + string.len(commitId)))
                         -- TODO тут пишется информация о ahead/behind, неплохо бы её выводить
+                        -- TODO а ещё тут бывает gone, когда на remote ветки уже нет
                         if string.startswith(textBlock, "[") then
                             originId = string.extract(textBlock, "^%[([^/]+)[^%]]+%].*")
                         else
@@ -126,6 +126,7 @@ function listBranches()
                     end
                     if originId == nil then originId = "origin" end
                     -- TODO тут баг, если локальная ветка foo трекает origin/bar, то у меня в списке отобразится origin/foo
+                    -- TODO а ещё, если локальная ветка ничего не трекает, но совпадает именем с удаленной веткой, то отобразится, как будто трекает
                     local originBranchId = string.format("%s/%s", originId, localBranchId)
                     local remoteBranchId = string.format("remotes/%s", originBranchId)
 
@@ -176,14 +177,14 @@ function listBranches()
             listObsolete = false
         end
 
-        breakKeys = {
+        local breakKeys = {
             {BreakKey="INSERT"},
             {BreakKey="F8"}, {BreakKey="DELETE"},
             {BreakKey="T"},
         }
         -- TODO Help
         local menuParams = {Title="Branches", Bottom="Enter, Delete, Insert, T", SelectIndex=activeIdx, Id=Guids.BranchesList, Flags=bit64.bor(far.Flags.FMENU_SHOWAMPERSAND, far.Flags.FMENU_WRAPMODE)}
-        result, pos = far.Menu(menuParams, menuItems, breakKeys)
+        local result, pos = far.Menu(menuParams, menuItems, breakKeys)
         if not result then break end
 
         local selItem = result
@@ -196,8 +197,8 @@ function listBranches()
                 success = string.contains(output, "Deleted branch")
                 if not success and string.contains(output, "is not fully merged") then
                     output = nil
-                    expDelString = "DELETE"
-                    gotDelString = far.InputBox(Guids.DialogDelBranch, string.format("Delete branch %s", selItem.branch_id_local), string.format("Branch is not fully merged. Type %s to delete it.", expDelString))
+                    local expDelString = "DELETE"
+                    local gotDelString = far.InputBox(Guids.DialogDelBranch, string.format("Delete branch %s", selItem.branch_id_local), string.format("Branch is not fully merged. Type %s to delete it.", expDelString))
                     if expDelString == gotDelString then
                         output = runCommand(string.format("git branch -D %s", selItem.branch_id_local))
                         success = string.contains(output, "Deleted branch")
@@ -205,7 +206,7 @@ function listBranches()
                 end
                 listObsolete = true
             elseif result.BreakKey == "INSERT" then
-                branchId = far.InputBox(Guids.DialogNewBranch, "Create branch", "Enter branch name")
+                local branchId = far.InputBox(Guids.DialogNewBranch, "Create branch", "Enter branch name")
                 if branchId ~= nil and string.len(branchId) > 0 then
                     output = runCommand(string.format("git checkout -b %s", branchId))
                     success = string.contains(output, "Switched to")
