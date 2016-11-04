@@ -70,8 +70,8 @@ function string.extract(str, pattern) -- TODO при наличии регуля
     return (str:gsub(pattern, "%1"))
 end
 
-local function runCommand(cmdString)
-    local process = io.popen(string.format("%s 2>&1", cmdString))
+local function runCommand(cmdString, workingDirectory)
+    local process = io.popen(string.format('CD /D "%s" && %s 2>&1', workingDirectory, cmdString))
     local result = process:read("*a")
     process:close()
     return result
@@ -88,12 +88,13 @@ local function branchPropsLessThan(lhs, rhs)
 end
 
 local function listBranches()
+    local curdir = panel.GetPanelDirectory(nil, 1).Name
     local menuItems = {}
     local activeIdx = 1
     local listObsolete = true
     repeat
         if listObsolete then
-            local output = runCommand("git branch --list --all -vv")
+            local output = runCommand("git branch --list --all -vv", curdir)
             if string.contains(output, "Not a git repository") then return end
 
             local branchesPropsDict = {}
@@ -193,14 +194,14 @@ local function listBranches()
         if result.BreakKey ~= nil then
             selItem = menuItems[pos]
             if result.BreakKey == "F8" or result.BreakKey == "DELETE" then
-                output = runCommand(string.format("git branch -d %s", selItem.branch_id_local))
+                output = runCommand(string.format("git branch -d %s", selItem.branch_id_local), curdir)
                 success = string.contains(output, "Deleted branch")
                 if not success and string.contains(output, "is not fully merged") then
                     output = nil
                     local expDelString = "DELETE"
                     local gotDelString = far.InputBox(Guids.DialogDelBranch, string.format("Delete branch %s", selItem.branch_id_local), string.format("Branch is not fully merged. Type %s to delete it.", expDelString))
                     if expDelString == gotDelString then
-                        output = runCommand(string.format("git branch -D %s", selItem.branch_id_local))
+                        output = runCommand(string.format("git branch -D %s", selItem.branch_id_local), curdir)
                         success = string.contains(output, "Deleted branch")
                     end
                 end
@@ -208,17 +209,17 @@ local function listBranches()
             elseif result.BreakKey == "INSERT" then
                 local branchId = far.InputBox(Guids.DialogNewBranch, "Create branch", "Enter branch name")
                 if branchId ~= nil and string.len(branchId) > 0 then
-                    output = runCommand(string.format("git checkout -b %s", branchId))
+                    output = runCommand(string.format("git checkout -b %s", branchId), curdir)
                     success = string.contains(output, "Switched to")
                     listObsolete = true
                 end
             elseif result.BreakKey == "T" then
-                output = runCommand(string.format("git branch -u %s %s", selItem.branch_id_origin, selItem.branch_id_local))
+                output = runCommand(string.format("git branch -u %s %s", selItem["branch_id_origin"], selItem["branch_id_local"]), curdir)
                 success = string.contains(output, "set up to track")
                 listObsolete = true
             end
         elseif selItem.branch_id_local then
-            output = runCommand(string.format("git checkout %s", selItem.branch_id_local))
+            output = runCommand(string.format("git checkout %s", selItem.branch_id_local), curdir)
             success = string.contains(output, "Switched to") or string.contains(output, "Already on")
             listObsolete = true
         end
