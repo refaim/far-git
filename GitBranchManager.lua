@@ -132,6 +132,7 @@ local function listBranches()
                     local remoteBranchId = string.format("remotes/%s", originBranchId)
 
                     local storage = table.setdefault(branchesPropsDict, originBranchId, {})
+                    table.setdefault(storage, "origin_id", originId)
                     table.setdefault(storage, "branch_id_local", localBranchId)
                     table.setdefault(storage, "branch_id_remote", remoteBranchId)
                     table.setdefault(storage, "branch_id_origin", originBranchId)
@@ -167,7 +168,9 @@ local function listBranches()
                     itemText = itemText .. string.padRight(lambda(props), " ", columnsWidths[col])
                 end
                 if props["current"] then activeIdx = i end
+
                 local itemProps = {}
+                itemProps["origin_id"] = props["origin_id"]
                 itemProps["branch_id_local"] = props["branch_id_local"]
                 itemProps["branch_id_origin"] = props["branch_id_origin"]
                 itemProps["text"] = itemText
@@ -182,9 +185,10 @@ local function listBranches()
             {BreakKey="INSERT"},
             {BreakKey="F8"}, {BreakKey="DELETE"},
             {BreakKey="T"},
+            {BreakKey="P"},
         }
         -- TODO Help
-        local menuParams = {Title="Branches", Bottom="Enter, Delete, Insert, T", SelectIndex=activeIdx, Id=Guids.BranchesList, Flags=bit64.bor(far.Flags.FMENU_SHOWAMPERSAND, far.Flags.FMENU_WRAPMODE)}
+        local menuParams = {Title="Branches", Bottom="Enter, Delete, Insert, P, T", SelectIndex=activeIdx, Id=Guids.BranchesList, Flags=bit64.bor(far.Flags.FMENU_SHOWAMPERSAND, far.Flags.FMENU_WRAPMODE)}
         local result, pos = far.Menu(menuParams, menuItems, breakKeys)
         if not result then break end
 
@@ -216,6 +220,11 @@ local function listBranches()
             elseif result.BreakKey == "T" then
                 output = runCommand(string.format("git branch -u %s %s", selItem["branch_id_origin"], selItem["branch_id_local"]), curdir)
                 success = string.contains(output, "set up to track")
+                listObsolete = true
+            elseif result.BreakKey == "P" then
+                -- TODO если уже есть remote, то тут мы его перетрём типа
+                output = runCommand(string.format("git push -u %s %s", selItem["origin_id"], selItem["branch_id_local"]), curdir)
+                success = false
                 listObsolete = true
             end
         elseif selItem.branch_id_local then
